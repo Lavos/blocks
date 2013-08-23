@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>blocks</title>
+
+	<script type="text/javascript" src="curl.js"></script>
+</head>
+
+<body>
+	<div id="master">
+		<div id="list"></div>
+
+		<script type="text/html" id="list_master_template">
+			<ul class="target"></ul>
+
+			<p><button data-action="add">Add New Item</button></p>
+		</script>
+
+		<script type="text/html" id="list_entry_template">
+			<p>[!= dt.title !]</p>
+			<p><input type="text" placeholder="set new title"/><button data-action="update">update</button><p>
+		</script>
+	</div><!-- /#master -->
+
+	<script type="text/javascript">
+		curl(['jquery', 'blocks', 'doubleunderscore']).then(function($, Blocks, __){
+			var $list = $('#list');
+
+			var Item = __.inherits(Blocks.Block, function(){
+				/* var self = this;
+
+				setTimeout(function(){
+					self.remember({ title: 'bananas' });
+				}, 10000); */
+			});
+
+			Item.prototype.data = {
+				title: 'Default Title'
+			};
+
+			var List = __.inherits(Blocks.Collection);
+			List.prototype.blocks = [Item];
+
+			var KrisList = new List;
+
+			var ListMaster = __.inherits(Blocks.View, function(){});
+			ListMaster.prototype.element_classes = 'list_master';
+			ListMaster.prototype.template_string = document.getElementById('list_master_template').innerHTML;
+			ListMaster.prototype.events = [
+				{ event_name: 'click', selector: '[data-action="add"]', function_name: 'add_item' }
+			];
+			ListMaster.prototype.render = function render () {
+				console.log('list master render');
+				this.element.innerHTML = this.comp_template();
+				this.$target = this.$element.find('ul.target');
+				console.log(this);
+			};
+			ListMaster.prototype.add_item = function add_item () {
+				console.log('add item!');
+				var view = new ListEntry({ block: new Item() });
+				view.render(view.block.data);
+				KrisList.push(view.block);
+				this.$target.append(view.element);
+				console.log('KrisList', KrisList);
+			};
+
+			var mylistmaster = new ListMaster();
+			mylistmaster.render();
+			$list.append(mylistmaster.element);
+
+	
+			var ListEntry = __.inherits(Blocks.View, function(params){
+				var self = this;
+
+				this.block = params.block;
+				this.block.on('update', function(data){ self.render(data) });
+			});
+			ListEntry.prototype.tag_name = 'li';
+			ListEntry.prototype.element_classes = 'list_entry';
+			ListEntry.prototype.template_string = document.getElementById('list_entry_template').innerHTML;
+			ListEntry.prototype.events = [
+				{ event_name: 'click', selector: '[data-action="update"]', function_name: 'change' }
+			];
+			ListEntry.prototype.render = function render (data) {
+				console.log('render!');
+				this.element.innerHTML = this.comp_template(data);
+				this.$input = this.$element.find('input');
+			};
+			ListEntry.prototype.change = function change (element) {
+				this.block.remember({ title: this.$input.val() });
+			};
+						
+		});
+	</script>
+</body>
+</html>
+
