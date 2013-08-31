@@ -1223,55 +1223,41 @@ return (function(){
 	__.PubSubPattern.prototype.cancelSubscriptions = function cancelSubscriptions (eventname) {
 		var self = this;
 
-		if (eventname && __.path(self, 'subscriptions.' + eventname, false)) {
+		if (eventname && __.hasPath(self, 'subscriptions.' + eventname)) {
 			self.subscriptions[eventname] = [];
 		} else if (!eventname) {
 			self.subscriptions = {};
 		};
 	};
 
-	__.PubSubPattern.prototype.once = function once (eventname, callback) {
+	__.PubSubPattern.prototype.once = function once (eventname, callback, context) {
 		var self = this;
 
 		function wrappedHandler () {
-			callback.apply(self, arguments);
+			callback.apply(this, arguments);
 			self.off([eventname, wrappedHandler]);
 		};
 
-		return self.on(eventname, wrappedHandler);
+		return self.on(eventname, wrappedHandler, context || self);
 	};
 
-	__.PubSubPattern.prototype.on = function on (eventname, callback, once) {
+	__.PubSubPattern.prototype.on = function on (eventname, callback, context) {
 		var self = this;
 
+		__.definePath(self, 'subscriptions', {});
 		var events = eventname.split(' ');
-
-		// It is recommended that your object have a subscriptions object for self-documentation, but the code will detect if you don't and add one.
-		if (!self.hasOwnProperty('subscriptions')) {
-			self.subscriptions = {};
-		};
-
-		if (once) {
-			var once_handles = [], once_counter = 0, once_limit = events.length;
-			while (once_counter < once_limit) {
-				once_handles[once_handles.length] = self.once(events[once_counter], callback);
-				once_counter++;
-			};
-
-			return (once_handles.length === 1 ? once_handles[0] : once_handles);
-		};
 
 		var event_handles = [], event_counter = 0, event_limit = events.length;
 		while (event_counter < event_limit) {
 			var current_event = events[event_counter];
+			__.definePath(self, 'subscriptions.' + current_event, []);
 
-			if (!self.subscriptions.hasOwnProperty(current_event)) {
-				self.subscriptions[current_event] = [];
-			};
+			self.subscriptions[current_event].push({
+				callback: callback || function(){},
+				context: context || self
+			});
 
-			self.subscriptions[current_event][self.subscriptions[current_event].length] = callback;
-
-			event_handles[event_handles.length] = [current_event, callback]; // handle
+			event_handles.push([current_event, callback]); // handle
 			event_counter++;
 		};
 
@@ -1288,22 +1274,23 @@ return (function(){
 
 			var counter = callbacks.length;
 			while (counter--) {
-				if (callbacks[counter] === func) {
+				if (callbacks[counter].callback === func) {
 					self.subscriptions[eventname].splice(counter, 1);
 				};
 			};
 		};
 	};
 
-	__.PubSubPattern.prototype._doCallbacks = function _doCallbacks (callbacks, args) {
+	__.PubSubPattern.prototype._doCallbacks = function _doCallbacks (pairs, args) {
 		var self = this;
 
-		var safe_callbacks = callbacks.slice();
+		var safe_pairs = pairs.slice();
 		var safe_args = args.slice();
-		var counter = 0, limit = safe_callbacks.length;
+		var counter = 0, limit = safe_pairs.length;
 
 		while (counter < limit) {
-			safe_callbacks[counter].apply(self, safe_args.slice(1));
+			var current_pair = safe_pairs[counter];
+			current_pair.callback.apply(current_pair.context, safe_args.slice(1));
 			counter++;
 		};
 	};
@@ -1311,11 +1298,8 @@ return (function(){
 	__.PubSubPattern.prototype.fire = function fire () {
 		var self = this;
 
+		__.definePath(self, 'subscriptions', {});
 		var args = Array.prototype.slice.call(arguments);
-
-		if (!self.hasOwnProperty('subscriptions')) {
-			self.subscriptions = {};
-		};
 
 		if (self.subscriptions.hasOwnProperty('debug')) {
 			self._doCallbacks(self.subscriptions['debug'], ['debug'].concat(args));
