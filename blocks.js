@@ -1,4 +1,4 @@
-define(['jquery'], function($, __){
+define(['jquery', 'doubleunderscore'], function($, __){
 	var Blocks = {};
 
 	var each = function (obj, iterator) {
@@ -29,8 +29,7 @@ define(['jquery'], function($, __){
 	// adapted from BackBone's inherit, also adapted from Google Closure's inherit
 	var ctor = function(){};
 
-	var Base = function(){};
-	Base.prototype.inherits = function (body, extend_prototypes) {
+	var inherits = function (body, extend_prototypes) {
 		var parent = this;
 
 		console.dir(parent);
@@ -55,13 +54,15 @@ define(['jquery'], function($, __){
 		return child;
 	};
 
-	var B = new Base();
-
 	// Events
 
-	var Events = B.inherits(function Events (){
+	var Events = function Events (){
 		this.subscriptions = {};
-	}, {
+	};
+
+	Events.inherits = inherits;
+
+	extend(Events.prototype, {
 		cancelSubscriptions: function cancelSubscriptions (eventname) {
 			var self = this;
 
@@ -160,7 +161,8 @@ define(['jquery'], function($, __){
 
 	// Model
 
-	var Model = Events.inherits(function Model(){}, {
+	var Model = Events.inherits(function Model(){
+	}, {
 		// static properties
 		isDirty: false,
 		isSaving: false,
@@ -214,8 +216,8 @@ define(['jquery'], function($, __){
 
 	// Collection
 
-	var Collection = Events.inherits(function Collection (params) {
-		this.model = new this.model_contructor();
+	var Collection = Events.inherits(function Collection () {
+		this.model = new this.model_constructor();
 	}, {
 		model_constructor: Model,
 		length: 0,
@@ -271,6 +273,8 @@ define(['jquery'], function($, __){
 		events: [],
 		render: function render(data){}
 	});
+
+	Model.inherits = Collection.inherits = View.inherits = inherits;
 
 	Blocks.Model = Model;
 	Blocks.Collection = Collection;

@@ -25,16 +25,11 @@
 
 	<script type="text/javascript">
 		curl(['jquery', 'blocks', 'doubleunderscore']).then(function($, Blocks, __){
+			// debugger;
 			var $list = $('#list');
 
-			var Item = Blocks.Model.inherits(function(){
-				/* var self = this;
-
-				setTimeout(function(){
-					self.remember({ title: 'bananas' });
-				}, 10000); */
-			}, {
-				title: 'Default Title'
+			var Item = Blocks.Model.inherits(function(){}, {
+				data: { title: 'Default Title' }
 			});
 
 			var List = Blocks.Model.inherits(function(){}, {
@@ -42,6 +37,8 @@
 			});
 
 			var TitleList = Blocks.Collection.inherits(function(){}, { model_constructor: List });
+
+			console.log(TitleList);			
 
 			var krislist = new TitleList();
 			krislist.on('debug', function(){ console.dir(arguments); });
