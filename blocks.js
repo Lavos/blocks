@@ -1,4 +1,4 @@
-define(['jquery'], function($){
+(function($){
 	var each = function (obj, iterator) {
 		for (key in obj) {
 			if (obj.hasOwnProperty(key)) {
@@ -283,4 +283,4 @@ define(['jquery'], function($){
 	Blocks.Collection = Collection;
 	Blocks.View = View;
 	return Blocks;
-});
+})(jQuery);
