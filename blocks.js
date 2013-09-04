@@ -1,6 +1,4 @@
-define(['jquery', 'doubleunderscore'], function($, __){
-	var Blocks = {};
-
+define(['jquery'], function($){
 	var each = function (obj, iterator) {
 		for (key in obj) {
 			if (obj.hasOwnProperty(key)) {
@@ -32,7 +30,6 @@ define(['jquery', 'doubleunderscore'], function($, __){
 	var inherits = function (body, extend_prototypes) {
 		var parent = this;
 
-		console.dir(parent);
 		var body = body || function(){};
 
 		var child = function(){
@@ -62,14 +59,24 @@ define(['jquery', 'doubleunderscore'], function($, __){
 
 	Events.inherits = inherits;
 
+	var _doCallbacks = function _doCallbacks (pairs, args) {
+		var safe_pairs = pairs.slice();
+		var safe_args = args.slice();
+		var counter = 0, limit = safe_pairs.length;
+
+		while (counter < limit) {
+			var current_pair = safe_pairs[counter];
+			current_pair.callback.apply(current_pair.context, safe_args.slice(1));
+			counter++;
+		};
+	};
+
 	extend(Events.prototype, {
 		cancelSubscriptions: function cancelSubscriptions (eventname) {
-			var self = this;
-
-			if (eventname && self.subscriptions.hasOwnProperty(eventname)) {
-				self.subscriptions[eventname] = [];
+			if (eventname && this.subscriptions.hasOwnProperty(eventname)) {
+				this.subscriptions[eventname] = [];
 			} else if (!eventname) {
-				self.subscriptions = {};
+				this.subscriptions = {};
 			};
 		},
 
@@ -81,22 +88,20 @@ define(['jquery', 'doubleunderscore'], function($, __){
 				self.off([eventname, wrappedHandler]);
 			};
 
-			return self.on(eventname, wrappedHandler, context || self);
+			return this.on(eventname, wrappedHandler, context);
 		},
 
 		on: function on (eventname, callback, context) {
-			var self = this;
-
 			var events = eventname.split(' ');
 
 			var event_counter = 0, event_limit = events.length;
 			while (event_counter < event_limit) {
 				var current_event = events[event_counter];
-				self.subscriptions[current_event] = self.subscriptions[current_event] || [];
+				this.subscriptions[current_event] = this.subscriptions[current_event] || [];
 
-				self.subscriptions[current_event].push({
+				this.subscriptions[current_event].push({
 					callback: callback || function(){},
-					context: context || self
+					context: context || this
 				});
 
 				event_counter++;
@@ -105,52 +110,33 @@ define(['jquery', 'doubleunderscore'], function($, __){
 			return callback;
 		},
 
+		// TODO more ways of removing callbacks, passing context?
 		off: function off (eventname, handle) {
-			var self = this;
-
-			var eventname = handle[0], func = handle[1];
-
-			if (self.subscriptions.hasOwnProperty(eventname)) {
-				var callbacks = self.subscriptions[eventname];
+			if (this.subscriptions.hasOwnProperty(eventname)) {
+				var callbacks = this.subscriptions[eventname];
 
 				var counter = callbacks.length;
 				while (counter--) {
-					if (callbacks[counter].callback === func) {
-						self.subscriptions[eventname].splice(counter, 1);
+					if (callbacks[counter].callback === handle) {
+						this.subscriptions[eventname].splice(counter, 1);
 					};
 				};
 			};
 		},
 
 		fire: function fire () {
-			var self = this;
-
 			var args = Array.prototype.slice.call(arguments);
 
-			if (self.subscriptions.hasOwnProperty('debug')) {
-				self._doCallbacks(self.subscriptions['debug'], ['debug'].concat(args));
+			if (this.subscriptions.hasOwnProperty('debug')) {
+				_doCallbacks(this.subscriptions['debug'], ['debug'].concat(args));
 			};
 
-			if (self.subscriptions.hasOwnProperty('all')) {
-				self._doCallbacks(self.subscriptions['all'], ['all'].concat(args));
+			if (this.subscriptions.hasOwnProperty('all')) {
+				_doCallbacks(this.subscriptions['all'], ['all'].concat(args));
 			};
 
-			if (self.subscriptions.hasOwnProperty(args[0])) {
-				self._doCallbacks(self.subscriptions[args[0]], args);
-			};
-		},
-
-		_doCallbacks: function _doCallbacks (pairs, args) {
-			var self = this;
-
-			var safe_pairs = pairs.slice();
-			var safe_args = args.slice();
-			var counter = 0, limit = safe_pairs.length;
-
-			while (counter < limit) {
-				var current_pair = safe_pairs[counter];
-				current_pair.callback.apply(current_pair.context, safe_args.slice(1));
-				counter++;
+			if (this.subscriptions.hasOwnProperty(args[0])) {
+				_doCallbacks(this.subscriptions[args[0]], args);
 			};
 		}
 	});
@@ -166,10 +152,16 @@ define(['jquery', 'doubleunderscore'], function($, __){
 		// static properties
 		isDirty: false,
 		isSaving: false,
+		isRemoved: false,
 		data: {},
 		transmit_data: {},
 
 		// methods
+
+		get: function get (key, default_value) {
+			return this.data.hasOwnProperty(key) ? this.data[key] : default_value;
+		},
+
 		set: function set (key, value, silent) {
 			if (!this.hasOwnProperty('data')) {
 				this.data = {};
@@ -184,7 +176,8 @@ define(['jquery', 'doubleunderscore'], function($, __){
 			obj[key] = value;
 
 			if (!silent) {
-				this.fire('change', obj);
+				this.fire('change', this);
+				this.fire('changes', obj);
 			};
 
 			return obj;
@@ -204,21 +197,21 @@ define(['jquery', 'doubleunderscore'], function($, __){
 				};
 			});
 
-			this.fire('change', __.extend.apply({}, changes));
+			this.fire('change', this);
+			this.fire('changes', changes);
 		},
 
-		serializeToJSON: function serializeToJSON () {
-
-		}			
+		serialize: function serializeToJSON () {
+			return this.data;
+		}
 	});
 
 
 
 	// Collection
+	// TODO more array methods
 
-	var Collection = Events.inherits(function Collection () {
-		this.model = new this.model_constructor();
-	}, {
+	var Collection = Events.inherits(function Collection () {}, {
 		model_constructor: Model,
 		length: 0,
 		push: function push (){
@@ -226,44 +219,53 @@ define(['jquery', 'doubleunderscore'], function($, __){
 			if (args.length) {
 				Array.prototype.push.apply(this, args);
 				this.fire('add', args);
-				this.fire('newset', self);
+				this.fire('change', this);
 			};
 		},
 		indexOf: Array.prototype.indexOf,
 		splice: function(){
 			var add_items = Array.prototype.slice.call(arguments, 2);
-			var removed_items = Array.prototype.splice.apply(self, arguments);
+			var removed_items = Array.prototype.splice.apply(this, arguments);
 
 			if (add_items.length) {
-				self.fire('add', add_items);
+				this.fire('add', add_items);
 			};
 
 			if (removed_items.length) {
-				self.fire('remove', remove_items);
+				this.fire('remove', removed_items);
 			};
 
 			if (add_items.length || removed_items.length) {
-				self.fire('newset', self);
+				this.fire('change', this);
 			};
 
 			return removed_items;
+		},
+		serializeToJSON: function(){
+			var counter = 0, limit = this.length, working = [];
+			while (counter < limit) {
+				working.push(this[counter].serialize());
+				counter++;
+			};
+
+			return JSON.stringify(working);
 		}
 	});
 
+
+
+
+	// View
+
 	var View = Events.inherits(function View (params) {
-		var self = this;
+		this.element = document.createElement(this.tag_name);
+		this.element.className = this.element_classes;
+		this.$element = $(this.element);
 
-		self.element = document.createElement(self.tag_name);
-		self.element.className = self.element_classes;
-		self.$element = $(self.element); 
-	
-		self.comp_template = __.template(self.template_string);
-
-		var counter = 0, limit = self.events.length;
+		var counter = 0, limit = this.events.length;
 		while (counter < limit) {
-			var current_event = self.events[counter];
-			console.log(current_event);
-			self.$element.on(current_event.event_name, current_event.selector, self[current_event.function_name].bind(self));
+			var current_event = this.events[counter];
+			this.$element.on(current_event.event_name, current_event.selector, this[current_event.function_name].bind(this));
 			counter++;
 		};
 	}, {
@@ -276,6 +278,7 @@ define(['jquery', 'doubleunderscore'], function($, __){
 
 	Model.inherits = Collection.inherits = View.inherits = inherits;
 
+	var Blocks = {};
 	Blocks.Model = Model;
 	Blocks.Collection = Collection;
 	Blocks.View = View;

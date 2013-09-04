@@ -24,6 +24,54 @@
 	</div><!-- /#master -->
 
 	<script type="text/javascript">
+		curl(['blocks', 'doubleunderscore']).then(function(Blocks, __){
+			var Model = Blocks.Model.inherits(function(){}, { test: 12345 });
+			var DifferentModel = Model.inherits(function(){}, { test: 67890 });
+			var AltModel = DifferentModel.inherits(function(){}, { test: 'xyz' });
+
+			var m = new Model();
+			var d = new DifferentModel();
+			var a = new AltModel();
+
+			console.log('m', m);
+			console.log('d', d);
+			console.log('a', a);
+
+
+			var Collection = Blocks.Collection.inherits(function(){}, { test: 12345 });
+
+			var c = new Collection();
+			c.on('debug', function(){ console.dir(arguments); });
+
+			c.push('abc');
+
+			console.log('c', c);
+
+
+			var Data = Blocks.Model.inherits(function(){}, {
+				data: { test: 12345 }
+			});
+
+			var View = Blocks.View.inherits(function(model){
+				this.model = model;
+				this.model.on('change', this.render, this);
+			}, {
+				render: function(){
+					console.log('render', this.model);
+				}
+			});
+
+			var d = new Data();
+			c.push(d);	
+			var v = new View(d);
+			
+			d.set('test', 'bananas');
+
+			console.log('v', v);
+		});
+	</script>
+
+	<script type="text/javascriptx">
 		curl(['jquery', 'blocks', 'doubleunderscore']).then(function($, Blocks, __){
 			// debugger;
 			var $list = $('#list');
