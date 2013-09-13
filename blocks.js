@@ -126,10 +126,7 @@
 
 		fire: function fire () {
 			var args = Array.prototype.slice.call(arguments);
-
-			if (this.subscriptions.hasOwnProperty('debug')) {
-				_doCallbacks(this.subscriptions['debug'], ['debug'].concat(args));
-			};
+			args.splice(1, 0, this); // the firing object is always the first argument
 
 			if (this.subscriptions.hasOwnProperty('all')) {
 				_doCallbacks(this.subscriptions['all'], ['all'].concat(args));
@@ -176,32 +173,38 @@
 			obj[key] = value;
 
 			if (!silent) {
-				this.fire('change', this);
+				this.fire('change');
 				this.fire('changes', obj);
 			};
 
 			return obj;
 		},
 
+		destroy: function destroy () {
+			this.fire('destroy');
+		},
+
 		ingest: function ingest (data) {
+			var self = this;
+
 			if (!this.hasOwnProperty('data')) {
 				this.data = {};
 			};
 
 			var changes = [];
-			_.each(data, function(value, key){
-				var change = this.set(key, value, true);
+			each(data, function(value, key){
+				var change = self.set(key, value, true);
 
 				if (change) {
 					changes.push([key, value]);
 				};
 			});
 
-			this.fire('change', this);
+			this.fire('change');
 			this.fire('changes', changes);
 		},
 
-		serialize: function serializeToJSON () {
+		serialize: function serialize () {
 			return this.data;
 		}
 	});
@@ -219,7 +222,21 @@
 			if (args.length) {
 				Array.prototype.push.apply(this, args);
 				this.fire('add', args);
-				this.fire('change', this);
+				this.fire('change');
+
+				var counter = 0, limit = args.length;
+				while (counter < limit) {
+					args[counter].on('all', this.event_handler, this);
+					counter++;
+				};
+			};
+		},
+		event_handler: function(event_name, model){
+			switch (event_name) {
+			case 'destroy':
+				this.remove(model);
+			break;
+
 			};
 		},
 		indexOf: Array.prototype.indexOf,
@@ -229,17 +246,45 @@
 
 			if (add_items.length) {
 				this.fire('add', add_items);
+
+				var counter = 0, limit = add_items.length;
+				while (counter < limit) {
+					add_items[counter].on('all', this.event_handler, this);
+					counter++;
+				};
 			};
 
 			if (removed_items.length) {
 				this.fire('remove', removed_items);
+
+				var counter = 0, limit = removed_items.length;
+				while (counter < limit) {
+					removed_items[counter].off('all', this.event_handler);
+					removed_items[counter].destroy();
+					counter++;
+				};
 			};
 
 			if (add_items.length || removed_items.length) {
-				this.fire('change', this);
+				this.fire('change');
 			};
 
 			return removed_items;
+		},
+		remove: function(item) {
+			this.splice(this.indexOf(item), 1);
+		},
+		removeAll: function() {
+			this.splice(0, this.length);
+		},
+		serialize: function() {
+			var data = [], counter = 0, limit = this.length;
+			while (counter < limit) {
+				data.push(this[counter].data);
+				counter++;
+			};
+
+			return data;
 		},
 		serializeToJSON: function(){
 			var counter = 0, limit = this.length, working = [];
@@ -273,7 +318,10 @@
 		element_classes: '',
 		template_string: '',
 		events: [],
-		render: function render(data){}
+		render: function render(data){},
+		destroy: function destroy(){
+			this.$element.remove();
+		}
 	});
 
 	Model.inherits = Collection.inherits = View.inherits = inherits;
